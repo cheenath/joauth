@@ -51,24 +51,45 @@ public class UrlCodec {
       return null;
     }
 
-    StringBuilder sb = null;
+    int i = 0;
+
+    for (; i < s.length(); i++) {
+      if (!isUnreserved(s.charAt(i))) {
+        break;
+      }
+    }
+
+    if (i == s.length()) {
+      // no conversion necessary
+      return s;
+    } else {
+      StringBuilder sb = new StringBuilder();
+      sb.append(s.substring(0, i));
+      encode(sb, s.substring(i));
+      return sb.toString();
+    }
+  }
+
+  public static void encode(StringBuilder sb, String s) {
+    if (s == null) {
+      return;
+    }
 
     int startingIndex = 0;
     boolean hasReservedChars = false;
 
     // scan through to see where we have to start % encoding, if at all
     while (startingIndex < s.length() && !hasReservedChars) {
+      char c = s.charAt(startingIndex);
       if (!isUnreserved(s.charAt(startingIndex))) {
         hasReservedChars = true;
       } else {
+        sb.append(c);
         startingIndex += 1;
       }
     }
 
     if (hasReservedChars && startingIndex < s.length()) {
-      sb = new StringBuilder(s.length() + 40);
-      sb.append(s.substring(0, startingIndex));
-
       byte[] byteArray = s.substring(startingIndex).getBytes(UTF_8_CHARSET);
       for (int i = 0; i < byteArray.length; i++) {
         byte bite = byteArray[i];
@@ -83,8 +104,6 @@ public class UrlCodec {
         }
       }
     }
-
-    return (sb == null) ? s : sb.toString();
   }
 
   public static String normalize(String s) {

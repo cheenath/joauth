@@ -28,6 +28,12 @@ public abstract class Normalizer {
 
   private static final StandardNormalizer STANDARD_NORMALIZER = new StandardNormalizer();
 
+  private static final String ENCODED_AMPERSAND = UrlCodec.encode("&");
+  private static final String ENCODED_COLON_SLASH_SLASH = UrlCodec.encode("://");
+  private static final String ENCODED_COLON = UrlCodec.encode(":");
+  private static final String ENCODED_EQUALS = UrlCodec.encode("=");
+
+
   public static Normalizer getStandardNormalizer() {
     return STANDARD_NORMALIZER;
   }
@@ -83,9 +89,6 @@ public abstract class Normalizer {
         OAuthParams.OAuth1Params oAuth1Params
     ) {
 
-      // We only need the stringbuilder for the duration of this method
-      StringBuilder paramsBuilder = new StringBuilder(512);
-
       // first, concatenate the params and the oAuth1Params together.
       // the parameters are already URLEncoded, so we leave them alone
       ArrayList<Request.Pair> sigParams = new ArrayList<Request.Pair>();
@@ -105,31 +108,38 @@ public abstract class Normalizer {
         }
       });
 
+      StringBuilder sb = new StringBuilder(512);
+
+      sb.append(verb.toUpperCase());
+      sb.append('&');
+
+      UrlCodec.encode(sb, scheme.toLowerCase());
+      sb.append(ENCODED_COLON_SLASH_SLASH);
+
+      UrlCodec.encode(sb, host.toLowerCase());
+      if (includePortString(port, scheme)) {
+        sb.append(ENCODED_COLON);
+        sb.append(port);
+      }
+      UrlCodec.encode(sb, path);
+
+      sb.append('&');
+
       if (!sigParams.isEmpty()) {
         Request.Pair head = sigParams.get(0);
-        paramsBuilder.append(head.key).append('=').append(head.value);
+        UrlCodec.encode(sb, head.key);
+        sb.append(ENCODED_EQUALS);
+        UrlCodec.encode(sb, head.value);
         for (int i=1; i<sigParams.size(); i++) {
           Request.Pair pair = sigParams.get(i);
-          paramsBuilder.append('&').append(pair.key).append('=').append(pair.value);
+          sb.append(ENCODED_AMPERSAND);
+          UrlCodec.encode(sb, pair.key);
+          sb.append(ENCODED_EQUALS);
+          UrlCodec.encode(sb, pair.value);
         }
       }
 
-      StringBuilder requestUrlBuilder = new StringBuilder(512);
-      requestUrlBuilder.append(scheme.toLowerCase());
-      requestUrlBuilder.append("://");
-      requestUrlBuilder.append(host.toLowerCase());
-      if (includePortString(port, scheme)) {
-        requestUrlBuilder.append(":").append(port);
-      }
-      requestUrlBuilder.append(path);
-
-      StringBuilder normalizedBuilder = new StringBuilder(512);
-
-      normalizedBuilder.append(verb.toUpperCase());
-      normalizedBuilder.append('&').append(UrlCodec.encode(requestUrlBuilder.toString()));
-      normalizedBuilder.append('&').append(UrlCodec.encode(paramsBuilder.toString()));
-
-      return normalizedBuilder.toString();
+      return sb.toString();
     }
 
     /**
